@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weather Dashboard</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-firestore-compat.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(to right, #4facfe, #00f2fe);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      /* Navbar */
+      .navbar {
+        width: 100%;
+        /* max-width: 1200px; */
+        background: white;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        /* border-radius: 12px; */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        position: absolute;
+        top: 0;
+      }
+
+      .navbar .greeting {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+      }
+
+      /* Profile Section */
+      .profile-container {
+        position: relative;
+        cursor: pointer;
+      }
+
+      .profile-icon {
+        width: 40px;
+        height: 40px;
+        background: #007bff;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 50%;
+      }
+
+      .profile-card {
+        position: absolute;
+        top: 50px;
+        right: 0;
+        background: white;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        display: none;
+        transition: all 0.3s ease-in-out;
+        text-align: left;
+      }
+
+      .profile-container:hover .profile-card {
+        display: block;
+      }
+
+      .profile-card p {
+        font-size: 14px;
+        color: #555;
+        margin: 5px 0;
+      }
+
+      /* Dashboard Container */
+      .dashboard-container {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        width: 100%;
+        max-width: 500px;
+        text-align: center;
+      }
+
+      .weather-input {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      input {
+        flex: 1;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        font-size: 16px;
+      }
+
+      button {
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #007bff;
+        border: none;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      .weather-info {
+        display: none;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .weather-info p {
+        font-size: 16px;
+        margin: 5px 0;
+      }
+
+      .logout-btn {
+        margin-top: 15px;
+        background-color: #dc3545;
+      }
+
+      .logout-btn:hover {
+        background-color: #b52b3a;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar">
+      <p class="greeting">Hello, <span id="user-name">User</span> 👋</p>
+      <h4>Welcome to Weather App</h4>
+      <div class="profile-container">
+        <div class="profile-icon" id="profile-icon">U</div>
+        <div class="profile-card">
+          <p><strong>Email:</strong> <span id="user-email"></span></p>
+          <p><strong>Username:</strong> <span id="user-username"></span></p>
+          <p><strong>Phone:</strong> <span id="user-phone"></span></p>
+          <p><strong>Address:</strong> <span id="user-address"></span></p>
+          <button class="logout-btn" id="logout-btn">Logout</button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Dashboard -->
+    <div class="dashboard-container">
+      <h3>Check Weather</h3>
+      <div class="weather-input">
+        <input type="text" id="city-input" placeholder="Enter city name" />
+        <button onclick="getWeather()">Search</button>
+      </div>
+
+      <div class="weather-info" id="weather-info">
+        <h3 id="weather-city"></h3>
+        <p><strong>Temperature:</strong> <span id="temp"></span>°C</p>
+        <p><strong>Humidity:</strong> <span id="humidity"></span>%</p>
+        <p><strong>Wind Speed:</strong> <span id="wind-speed"></span> m/s</p>
+        <p><strong>Weather:</strong> <span id="weather-desc"></span></p>
+      </div>
+    </div>
+
+    <script>
+      // Firebase Configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyAOYMVxySSSoSD0XqmadzzFedU1jjkJV6E",
+        authDomain: "saikrishna-e2c71.firebaseapp.com",
+        databaseURL: "https://saikrishna-e2c71-default-rtdb.firebaseio.com",
+        projectId: "saikrishna-e2c71",
+        storageBucket: "saikrishna-e2c71.firebasestorage.app",
+        messagingSenderId: "136963885829",
+        appId: "1:136963885829:web:ea4476388c19a37795c56c",
+        measurementId: "G-52WNM7FWZW",
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.firestore();
+      const weatherApiKey = "8c0da7211dae841c85a2552976e9d213";
+      // Check if user is logged in
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          db.collection("users")
+            .doc(user.uid)
+            .get()
+            .then((doc) => {
+              if (doc.exists) {
+                const userData = doc.data();
+                document.getElementById("user-name").innerText =
+                  userData.fullName;
+                document.getElementById("profile-icon").innerText =
+                  userData.fullName.charAt(0).toUpperCase();
+                document.getElementById("user-email").innerText =
+                  userData.email;
+                document.getElementById("user-username").innerText =
+                  userData.username;
+                document.getElementById("user-phone").innerText =
+                  userData.phone;
+                document.getElementById("user-address").innerText =
+                  userData.address;
+              }
+            });
+        } else {
+          window.location.href = "login.html";
+        }
+      });
+
+      function getWeather() {
+        const city = document.getElementById("city-input").value;
+        fetch(
+          https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${weatherApiKey}&units=metric
+        )
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById("weather-city").innerText = data.name;
+            document.getElementById("temp").innerText = data.main.temp;
+            document.getElementById("humidity").innerText = data.main.humidity;
+            document.getElementById("wind-speed").innerText = data.wind.speed;
+            document.getElementById("weather-desc").innerText =
+              data.weather[0].description;
+            document.getElementById("weather-info").style.display = "block";
+          });
+      }
+
+      document
+        .getElementById("logout-btn")
+        .addEventListener("click", () =>
+          auth.signOut().then(() => (window.location.href = "login.html"))
+        );
+    </script>
+  </body>
+</html>
